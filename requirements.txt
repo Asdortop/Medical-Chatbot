@@ -1,0 +1,14 @@
+sentence-transformers==2.2.0   # for embeddings
+langchain                      # main framework
+flask                          # web app server
+pypdf                          # PDF document loader
+python-dotenv                  # load env variables
+pinecone-client                # Pinecone DB client
+langchain-pinecone              # LangChain ↔ Pinecone integration
+langchain_community            # community integrations
+langchain_experimental         # experimental modules
+transformers                   # HuggingFace models
+accelerate                     # optimizations for HF models
+huggingface-hub                # download/manage HF models
+torch                          # deep learning framework
+-e .
