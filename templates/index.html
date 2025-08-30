@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediBot - Your Health Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styling.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-animation">
+        <div class="medical-cross cross-1"></div>
+        <div class="medical-cross cross-2"></div>
+        <div class="medical-cross cross-3"></div>
+        <div class="pulse-circle circle-1"></div>
+        <div class="pulse-circle circle-2"></div>
+        <div class="pulse-circle circle-3"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-user-md"></i>
+                <h1>MediBot</h1>
+            </div>
+            <div class="status">
+                <div class="status-indicator online"></div>
+                <span>Online</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Chat Container -->
+    <main class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+            <!-- Welcome Message -->
+            <div class="message-wrapper bot-wrapper">
+                <div class="avatar bot-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <p>👋 Hello! I'm MediBot, your AI health assistant. How can I help you today?</p>
+                        <div class="message-time">Just now</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+                </button>
+                <input type="text" id="messageInput" placeholder="Type your health question here..." autocomplete="off">
+                <button class="voice-btn" title="Voice input">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="send-btn" id="sendBtn" title="Send message">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+
+
+    <script>
+    class MedicalChatbot {
+        constructor() {
+            this.messageInput = document.getElementById('messageInput');
+            this.sendBtn = document.getElementById('sendBtn');
+            this.chatMessages = document.getElementById('chatMessages');
+            this.initEventListeners();
+        }
+
+        initEventListeners() {
+            this.sendBtn.addEventListener('click', () => this.sendMessage());
+            this.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.sendMessage();
+            });
+        }
+
+        async sendMessage() {
+            const message = this.messageInput.value.trim();
+            if (!message) return;
+
+            this.addMessage(message, 'user');
+            this.messageInput.value = '';
+
+            // Show typing indicator
+            const typingIndicator = this.showTypingIndicator();
+
+            try {
+                const response = await fetch('/get', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({ msg: message })
+                });
+
+                const data = await response.json();
+                this.removeTypingIndicator(typingIndicator);
+                this.addMessage(data.answer, 'bot');
+
+            } catch (error) {
+                this.removeTypingIndicator(typingIndicator);
+                this.addMessage("⚠️ Sorry, something went wrong. Please try again.", 'bot');
+                console.error(error);
+            }
+        }
+
+        addMessage(text, sender) {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `message-wrapper ${sender}-wrapper`;
+
+            const currentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            messageWrapper.innerHTML = `
+                <div class="avatar ${sender}-avatar">
+                    <i class="fas ${sender === 'user' ? 'fa-user' : 'fa-robot'}"></i>
+                </div>
+                <div class="message ${sender}-message">
+                    <div class="message-content">
+                        <p>${text}</p>
+                        <div class="message-time">${currentTime}</div>
+                    </div>
+                </div>
+            `;
+
+            this.chatMessages.appendChild(messageWrapper);
+            this.scrollToBottom();
+        }
+
+        showTypingIndicator() {
+            const typingWrapper = document.createElement('div');
+            typingWrapper.className = "message-wrapper bot-wrapper typing-indicator";
+
+            typingWrapper.innerHTML = `
+                <div class="avatar bot-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+
+            this.chatMessages.appendChild(typingWrapper);
+            this.scrollToBottom();
+            return typingWrapper;
+        }
+
+        removeTypingIndicator(typingWrapper) {
+            typingWrapper.remove();
+        }
+
+        scrollToBottom() {
+            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        new MedicalChatbot();
+    });
+</script>
+
+</body>
+</html>
