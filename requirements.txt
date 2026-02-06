@@ -3,10 +3,11 @@ langchain                      # main framework
 flask                          # web app server
 pypdf                          # PDF document loader
 python-dotenv                  # load env variables
-pinecone-client                # Pinecone DB client
-langchain-pinecone              # LangChain ↔ Pinecone integration
+faiss-cpu                      # FAISS vector store (local)
 langchain_community            # community integrations
 langchain_experimental         # experimental modules
+langchain-text-splitters
+Pillow                         # PIL image library
 transformers                   # HuggingFace models
 accelerate                     # optimizations for HF models
 huggingface-hub                # download/manage HF models

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styling.css') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
+
 <body>
     <!-- Animated Background -->
     <div class="bg-animation">
@@ -58,10 +60,20 @@
                     <option value="hi">Hindi</option>
                 </select>
 
+                <!-- Hidden file input -->
+                <input type="file" id="imageInput" accept="image/*" style="display: none;">
+
+                <!-- Image Upload Button -->
+                <button class="upload-btn" id="uploadBtn" title="Upload lab report image">
+                    <i class="fas fa-image"></i>
+                </button>
+
                 <input type="text" id="messageInput" placeholder="Type your health question here..." autocomplete="off">
+
                 <button class="voice-btn" title="Voice input">
                     <i class="fas fa-microphone"></i>
                 </button>
+
                 <button class="send-btn" id="sendBtn" title="Send message">
                     <i class="fas fa-paper-plane"></i>
                 </button>
@@ -70,130 +82,145 @@
     </main>
 
     <script>
-class MedicalChatbot {
-    constructor() {
-        this.messageInput = document.getElementById('messageInput');
-        this.sendBtn = document.getElementById('sendBtn');
-        this.chatMessages = document.getElementById('chatMessages');
-        this.voiceBtn = document.querySelector('.voice-btn');
-        this.languageSelect = document.getElementById('languageSelect');
-        this.initEventListeners();
-        this.initVoiceRecognition();
-    }
+        class MedicalChatbot {
+            constructor() {
+                this.messageInput = document.getElementById('messageInput');
+                this.sendBtn = document.getElementById('sendBtn');
+                this.chatMessages = document.getElementById('chatMessages');
+                this.voiceBtn = document.querySelector('.voice-btn');
+                this.languageSelect = document.getElementById('languageSelect');
+                this.uploadBtn = document.getElementById('uploadBtn');
+                this.imageInput = document.getElementById('imageInput');
+                this.initEventListeners();
+                this.initVoiceRecognition();
+            }
 
-    initEventListeners() {
-        this.sendBtn.addEventListener('click', () => this.handleInput());
-        this.messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.handleInput();
-        });
-        this.voiceBtn.addEventListener('click', () => this.startVoiceInput());
-    }
+            initEventListeners() {
+                this.sendBtn.addEventListener('click', () => this.handleInput());
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.handleInput();
+                });
+                this.voiceBtn.addEventListener('click', () => this.startVoiceInput());
 
-    // ✅ Translation helper (can be used for both directions)
-    async translateText(text, fromLang, toLang) {
-        if (fromLang === toLang) return text;
-        try {
-            let translated = await fetch(
-                `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`
-            ).then(res => res.json());
-            return translated.responseData.translatedText || text;
-        } catch (e) {
-            console.error("Translation error:", e);
-            return text;
-        }
-    }
+                // Image upload handlers
+                this.uploadBtn.addEventListener('click', () => this.imageInput.click());
+                this.imageInput.addEventListener('change', (e) => this.handleImageUpload(e));
+            }
 
-    initVoiceRecognition() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            console.error("SpeechRecognition not supported in this browser.");
-            return;
-        }
+            // ✅ Translation helper (can be used for both directions)
+            async translateText(text, fromLang, toLang) {
+                if (fromLang === toLang) return text;
 
-        this.recognition = new SpeechRecognition();
-        this.recognition.continuous = true;
-        this.recognition.interimResults = false;
+                // Skip translation for long texts (MyMemory API limit is 500 chars)
+                if (text.length > 400) {
+                    console.warn("Text too long for translation API, sending untranslated");
+                    return text;
+                }
 
-        this.recognition.onresult = async (event) => {
-            let transcript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    transcript += event.results[i][0].transcript;
+                try {
+                    let translated = await fetch(
+                        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`
+                    ).then(res => res.json());
+                    return translated.responseData.translatedText || text;
+                } catch (e) {
+                    console.error("Translation error:", e);
+                    return text;
                 }
             }
 
-            if (!transcript) return;
+            initVoiceRecognition() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    console.error("SpeechRecognition not supported in this browser.");
+                    return;
+                }
 
-            let lang = this.languageSelect.value;
-            let finalText = lang === "hi"
-                ? await this.translateText(transcript, "hi", "en")
-                : transcript;
+                this.recognition = new SpeechRecognition();
+                this.recognition.continuous = true;
+                this.recognition.interimResults = false;
 
-            this.addMessage("🎤 " + transcript, "user");
-            this.messageInput.value = finalText;
-            this.sendMessage(finalText, lang);
-        };
+                this.recognition.onresult = async (event) => {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            transcript += event.results[i][0].transcript;
+                        }
+                    }
 
-        this.recognition.onerror = (event) => {
-            console.error("Voice error:", event.error);
-        };
-    }
+                    if (!transcript) return;
 
-    startVoiceInput() {
-        if (this.recognition) {
-            this.recognition.lang = this.languageSelect.value === "hi" ? "hi-IN" : "en-US";
-            this.recognition.start();
-        }
-    }
+                    let lang = this.languageSelect.value;
+                    let finalText = lang === "hi"
+                        ? await this.translateText(transcript, "hi", "en")
+                        : transcript;
 
-    async handleInput() {
-        let message = this.messageInput.value.trim();
-        if (!message) return;
+                    this.addMessage("🎤 " + transcript, "user");
+                    this.messageInput.value = finalText;
+                    this.sendMessage(finalText, lang);
+                };
 
-        let lang = this.languageSelect.value;
-        let translatedMessage = lang === "hi"
-            ? await this.translateText(message, "hi", "en")
-            : message;
+                this.recognition.onerror = (event) => {
+                    console.error("Voice error:", event.error);
+                };
+            }
 
-        this.addMessage(message, "user");
-        this.messageInput.value = '';
-        this.sendMessage(translatedMessage, lang);
-    }
+            startVoiceInput() {
+                if (this.recognition) {
+                    this.recognition.lang = this.languageSelect.value === "hi" ? "hi-IN" : "en-US";
+                    this.recognition.start();
+                }
+            }
 
-    async sendMessage(message, lang) {
-        const typingIndicator = this.showTypingIndicator();
+            async handleInput() {
+                let message = this.messageInput.value.trim();
+                if (!message) return;
 
-        try {
-            const response = await fetch('/get', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ msg: message })
-            });
+                let lang = this.languageSelect.value;
 
-            const data = await response.json();
-            this.removeTypingIndicator(typingIndicator);
+                // Only translate if Hindi is selected AND text is short enough
+                let translatedMessage = (lang === "hi" && message.length <= 400)
+                    ? await this.translateText(message, "hi", "en")
+                    : message;
 
-            // ✅ If Hindi selected, translate bot’s answer back to Hindi
-            let finalAnswer = lang === "hi"
-                ? await this.translateText(data.answer, "en", "hi")
-                : data.answer;
+                this.addMessage(message, "user");
+                this.messageInput.value = '';
+                this.sendMessage(translatedMessage, lang);
+            }
 
-            this.addMessage(finalAnswer, 'bot');
+            async sendMessage(message, lang) {
+                const typingIndicator = this.showTypingIndicator();
 
-        } catch (error) {
-            this.removeTypingIndicator(typingIndicator);
-            this.addMessage("⚠️ Sorry, something went wrong. Please try again.", 'bot');
-            console.error(error);
-        }
-    }
+                try {
+                    const response = await fetch('/get', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({ msg: message })
+                    });
 
-    addMessage(text, sender) {
-        const messageWrapper = document.createElement('div');
-        messageWrapper.className = `message-wrapper ${sender}-wrapper`;
+                    const data = await response.json();
+                    this.removeTypingIndicator(typingIndicator);
 
-        const currentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    // ✅ If Hindi selected AND response is short, translate bot's answer back to Hindi
+                    let finalAnswer = (lang === "hi" && data.answer.length <= 400)
+                        ? await this.translateText(data.answer, "en", "hi")
+                        : data.answer;
 
-        messageWrapper.innerHTML = `
+                    this.addMessage(finalAnswer, 'bot');
+
+                } catch (error) {
+                    this.removeTypingIndicator(typingIndicator);
+                    this.addMessage("⚠️ Sorry, something went wrong. Please try again.", 'bot');
+                    console.error(error);
+                }
+            }
+
+            addMessage(text, sender) {
+                const messageWrapper = document.createElement('div');
+                messageWrapper.className = `message-wrapper ${sender}-wrapper`;
+
+                const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                messageWrapper.innerHTML = `
             <div class="avatar ${sender}-avatar">
                 <i class="fas ${sender === 'user' ? 'fa-user' : 'fa-robot'}"></i>
             </div>
@@ -205,15 +232,15 @@ class MedicalChatbot {
             </div>
         `;
 
-        this.chatMessages.appendChild(messageWrapper);
-        this.scrollToBottom();
-    }
+                this.chatMessages.appendChild(messageWrapper);
+                this.scrollToBottom();
+            }
 
-    showTypingIndicator() {
-        const typingWrapper = document.createElement('div');
-        typingWrapper.className = "message-wrapper bot-wrapper typing-indicator";
+            showTypingIndicator() {
+                const typingWrapper = document.createElement('div');
+                typingWrapper.className = "message-wrapper bot-wrapper typing-indicator";
 
-        typingWrapper.innerHTML = `
+                typingWrapper.innerHTML = `
             <div class="avatar bot-avatar">
                 <i class="fas fa-robot"></i>
             </div>
@@ -226,24 +253,102 @@ class MedicalChatbot {
             </div>
         `;
 
-        this.chatMessages.appendChild(typingWrapper);
-        this.scrollToBottom();
-        return typingWrapper;
-    }
+                this.chatMessages.appendChild(typingWrapper);
+                this.scrollToBottom();
+                return typingWrapper;
+            }
 
-    removeTypingIndicator(typingWrapper) {
-        typingWrapper.remove();
-    }
+            removeTypingIndicator(typingWrapper) {
+                typingWrapper.remove();
+            }
 
-    scrollToBottom() {
-        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-    }
-}
+            scrollToBottom() {
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
 
-document.addEventListener('DOMContentLoaded', () => {
-    new MedicalChatbot();
-});
-</script>
+            async handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Validation
+                if (!file.type.startsWith('image/')) {
+                    this.addMessage("⚠️ Please upload an image file.", 'bot');
+                    return;
+                }
+
+                // Show image preview in chat
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imagePreview = `
+                <div class="image-preview">
+                    <img src="${e.target.result}" alt="Lab report" style="max-width: 100%; border-radius: 8px; margin: 10px 0;"/>
+                    <p style="color: #666; font-size: 0.9em;">📄 Uploaded lab report</p>
+                </div>
+            `;
+                    this.addMessage(imagePreview, 'user');
+                };
+                reader.readAsDataURL(file);
+
+                // Show analyzing indicator
+                const typingIndicator = this.showTypingIndicator();
+
+                try {
+                    // Send to backend
+                    const formData = new FormData();
+                    formData.append('image', file);
+
+                    const response = await fetch('/analyze-report', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    this.removeTypingIndicator(typingIndicator);
+
+                    if (!response.ok) {
+                        this.addMessage(`⚠️ Error: ${data.error || 'Failed to analyze image'}`, 'bot');
+                        return;
+                    }
+
+                    // Format and display results
+                    let resultHTML = `
+                <div class="lab-report-result">
+                    <h3 style="color: #4a90e2; margin-bottom: 10px;">📊 Lab Report Analysis</h3>
+                    
+                    <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <h4 style="color: #5bc0de; margin-bottom: 8px;">Extracted Values:</h4>
+                        <pre style="white-space: pre-wrap; font-family: monospace; font-size: 0.9em; margin: 0;">${data.extracted_values}</pre>
+                    </div>
+                    
+                    <div style="background: rgba(74, 144, 226, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <h4 style="color: #4a90e2; margin-bottom: 8px;">Medical Explanation:</h4>
+                        <p style="line-height: 1.6; margin: 0;">${data.explanation}</p>
+                    </div>
+                    
+                    <div style="font-size: 0.8em; color: #888; margin-top: 10px;">
+                        📚 Retrieved ${data.sources_count} relevant medical sources
+                    </div>
+                </div>
+            `;
+
+                    this.addMessage(resultHTML, 'bot');
+
+                } catch (error) {
+                    this.removeTypingIndicator(typingIndicator);
+                    this.addMessage("⚠️ Error analyzing lab report. Please ensure LLaVA model is installed and try again.", 'bot');
+                    console.error('Image upload error:', error);
+                }
+
+                // Reset file input
+                event.target.value = '';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new MedicalChatbot();
+        });
+    </script>
 
 </body>
+
 </html>

@@ -1,40 +1,33 @@
 from src.helper import load_pdf_file, text_split, download_huggingface_embeddings
-from pinecone.grpc import PineconeGRPC as Pinecone
-from pinecone import ServerlessSpec
+from langchain_community.vectorstores import FAISS
 import os
-from langchain_pinecone import PineconeVectorStore
-from dotenv import load_dotenv
 
-load_dotenv()
+print("Loading and processing medical documents...")
+extracted_data = load_pdf_file(data="Data/")
+print(f"✅ Loaded {len(extracted_data)} pages from PDFs")
 
-PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
-os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
-
-extracted_data = load_pdf_file(data = "Data/")
+print("Splitting documents into chunks...")
 text_chunks = text_split(extracted_data)
+print(f"✅ Created {len(text_chunks)} text chunks")
+
+print("Loading embedding model...")
 embeddings = download_huggingface_embeddings()
+print("✅ Embedding model loaded")
 
-
-pc = Pinecone(api_key=PINECONE_API_KEY)
-
-index_name = "medical-chatbot"
-
-
-if index_name not in pc.list_indexes():
-    pc.create_index(
-        name=index_name,
-        dimension=384,
-        metric="cosine",
-        spec=ServerlessSpec(
-            cloud="aws",
-            region="us-east-1",
-        ),
-    )
-
-
-docsearch = PineconeVectorStore.from_documents(
-    documents = text_chunks,
-    index_name = index_name,
-    embedding = embeddings,
+print("\nCreating FAISS index...")
+docsearch = FAISS.from_documents(
+    documents=text_chunks,
+    embedding=embeddings
 )
+print("✅ FAISS index created in memory")
+
+# Save to disk
+index_path = "faiss_index"
+print(f"\nSaving FAISS index to '{index_path}/'...")
+docsearch.save_local(index_path)
+print(f"✅ FAISS index saved successfully!")
+print(f"   - Location: {os.path.abspath(index_path)}/")
+print(f"   - Total chunks indexed: {len(text_chunks)}")
+print(f"   - Embedding dimensions: 384")
+print("\n🎉 Migration complete! You can now run app.py")
 
